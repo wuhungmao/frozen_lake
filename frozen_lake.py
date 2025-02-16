@@ -1,6 +1,7 @@
-from MDP_wrapper.py import MDP_wrapper
+from MDP_wrapper import MDP_wrapper
 import numpy as np
 import types
+import math
 from enum import Enum
 
 class Direction(Enum):
@@ -34,14 +35,15 @@ class Frozen_lake_wrapper(MDP_wrapper):
             ]})
         
     # reward function
-    def return_reward(self, next_s: int, curr_s: int, a: int) -> int:
-        if(self.env.spec.kwargs['map_name'] == '8x8'):
-            # sanity check
-            assert(next_s//self._NUM_COL < self._NUM_ROW and next_s%self._NUM_COL < self._NUM_COL)
-            return self._PRELOAD_MAP["8x8"][next_s//self._NUM_COL][next_s%self._NUM_COL]
-        elif(self.env.spec.kwargs['map_name'] == '4x4'):
-            assert(next_s//self._NUM_COL < self._NUM_ROW and next_s%self._NUM_COL < self._NUM_COL)
-            return self._PRELOAD_MAP["4x4"][next_s//self._NUM_COL][next_s%self._NUM_COL]
+    def return_reward(self, next_s: int) -> int:
+        if next_s != None:
+            if(self.env.spec.kwargs['map_name'] == '8x8'):
+                # sanity check
+                assert(next_s//self._NUM_COL < self._NUM_ROW and next_s%self._NUM_COL < self._NUM_COL)
+                return self._PRELOAD_MAP["8x8"][next_s//self._NUM_COL][next_s%self._NUM_COL]
+            elif(self.env.spec.kwargs['map_name'] == '4x4'):
+                assert(next_s//self._NUM_COL < self._NUM_ROW and next_s%self._NUM_COL < self._NUM_COL)
+                return self._PRELOAD_MAP["4x4"][next_s//self._NUM_COL][next_s%self._NUM_COL]
 
     def find_successors(self, curr_s:int, a:int) -> list:
         poss_next_s = list()
@@ -50,8 +52,9 @@ class Frozen_lake_wrapper(MDP_wrapper):
         go_down = lambda curr_s: curr_s + self._NUM_COL
         go_right = lambda curr_s: curr_s + 1
         go_up = lambda curr_s: curr_s - self._NUM_COL
-        if(self.env.spec['is_slippery']):
-            match a:
+        action = Direction(a)
+        if(self.env.spec.kwargs['is_slippery']):
+            match action:
                 case Direction.LEFT:
                     poss_next_s.append(in_state_space(go_up(curr_s)))
                     poss_next_s.append(in_state_space(go_left(curr_s)))
@@ -65,9 +68,10 @@ class Frozen_lake_wrapper(MDP_wrapper):
                     poss_next_s.append(in_state_space(go_right(curr_s)))
                     poss_next_s.append(in_state_space(go_up(curr_s)))
                 case Direction.UP:
-                    poss_next_s.append(in_state_space(go_left(curr_s)))
-                    poss_next_s.append(in_state_space(go_up(curr_s)))
                     poss_next_s.append(in_state_space(go_right(curr_s)))
+                    poss_next_s.append(in_state_space(go_up(curr_s)))
+                    poss_next_s.append(in_state_space(go_left(curr_s)))
+            assert(len(poss_next_s) == 3)
         else:
             match a:
                 case Direction.LEFT:
@@ -78,6 +82,7 @@ class Frozen_lake_wrapper(MDP_wrapper):
                     poss_next_s.append(in_state_space(go_right(curr_s)))
                 case Direction.UP:
                     poss_next_s.append(in_state_space(go_up(curr_s)))
+            assert(len(poss_next_s) == 1)
         return poss_next_s
         
     # v = max_a Σ_s' P(s'|s, a) * [R(s, a, s') + γ * V(s')]
@@ -86,8 +91,9 @@ class Frozen_lake_wrapper(MDP_wrapper):
     # P(s'|s, a): The probability of transitioning to state s' from state s after taking action a.
     # R(s, a, s'): The reward received for this transition.
     # γ * V(s'): The discounted value of the next state s'.
-    def calc_backup_val(self, curr_s:int):
-        max_a = 0
+    def calc_backup_val(self, curr_s:int) -> int:
+        max_a = float("-inf")
+        action = 0
         # all possible action
         for a in self.action_spac:
             # find all possible successor states
@@ -95,34 +101,19 @@ class Frozen_lake_wrapper(MDP_wrapper):
             # sum over all 
             cum_next_state_reward = 0
             for next_s in succs_s:
-                if self.env.spec['is_slippery']:
-                    assert(len(succs_s) == 3)
-                    cum_next_state_reward += 0.3333333333333333 * (self.return_reward(next_s, curr_s, a) + self.disc_fact * self.val_func[next_s])
-                else:
-                    assert(len(succs_s) == 1)
-                    cum_next_state_reward += 1 * (self.return_reward(next_s, curr_s, a) + self.disc_fact * self.val_func[next_s])
-                    
+                if next_s != None and self.env.spec.kwargs['is_slippery']:
+                    cum_next_state_reward += 0.3333333333333333 * (self.return_reward(next_s) + self.disc_fact * self.val_func[next_s])
+                    print(cum_next_state_reward)
+                elif next_s != None:
+                    cum_next_state_reward += 1 * (self.return_reward(next_s) + self.disc_fact * self.val_func[next_s])   
+                print("none")                 
             if max_a < cum_next_state_reward:
                 max_a = cum_next_state_reward
+                action = a
+            print('next action')
             
-        return max_a
+        return (max_a, action)
         
     # transition probability
     def P():
         return None
-
-    @property
-    def env(self):
-        return self.env
-
-    @property
-    def action_spac(self):
-        return self.action_spac
-    
-    @property
-    def state_spac(self):
-        return self.state_spac
-    
-    @property
-    def val_func(self):
-        return self.val_func
