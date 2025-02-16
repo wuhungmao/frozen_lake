@@ -103,17 +103,28 @@ class Frozen_lake_wrapper(MDP_wrapper):
             for next_s in succs_s:
                 if next_s != None and self.env.spec.kwargs['is_slippery']:
                     cum_next_state_reward += 0.3333333333333333 * (self.return_reward(next_s) + self.disc_fact * self.val_func[next_s])
-                    print(cum_next_state_reward)
                 elif next_s != None:
                     cum_next_state_reward += 1 * (self.return_reward(next_s) + self.disc_fact * self.val_func[next_s])   
-                print("none")                 
             if max_a < cum_next_state_reward:
                 max_a = cum_next_state_reward
-                action = a
-            print('next action')
-            
-        return (max_a, action)
+                action = a            
+        return max_a
         
+    def sweep(self):
+        delta = float("-inf")
+        new_val_func = list(np.zeros(64))
+        for curr_s in self.state_spac:
+            new_val_func[curr_s] = self.calc_backup_val(curr_s)   
+            if abs(new_val_func[curr_s] - self.val_func[curr_s]) > delta:
+                delta = abs(new_val_func[curr_s] - self.val_func[curr_s])
+        print(new_val_func)
+        self.val_func = new_val_func
+        return delta
+                
+                
+                
     # transition probability
     def P():
         return None
+    
+    

@@ -29,6 +29,10 @@ class MDP_wrapper:
     def val_func(self):
         return self._val_func
     
+    @val_func.setter
+    def val_func(self, val_func):
+        self._val_func = val_func
+        
     @property
     def disc_fact(self):
         return self._disc_fact
