@@ -13,10 +13,9 @@ class Direction(Enum):
 class Frozen_lake_wrapper(MDP_wrapper):
     def __init__(self, env):
         # list[gym.Env, list[int], list[int], list[int]]
-        super().__init__(env, list(range(env.action_space.n)), list(range(env.observation_space.n)), np.zeros(env.observation_space.n).tolist(), disc_fact=.5)
+        super().__init__(env, list(range(env.action_space.n)), list(range(env.observation_space.n)), np.zeros(env.observation_space.n).tolist(), 0.5, dict())
         self._NUM_COL = 8
         self._NUM_ROW = 8
-        self._opt_policy = dict()
         
         self._PRELOAD_MAP = types.MappingProxyType({
             "8x8" : 
@@ -154,13 +153,13 @@ class Frozen_lake_wrapper(MDP_wrapper):
                             max_v = self.val_func[poss_succs]
                             match poss_succs - curr_s:
                                 case 8:
-                                    self._opt_policy.update({curr_s: Direction.DOWN})
+                                    self.opt_policy.update({curr_s: Direction.DOWN})
                                 case 1:
-                                    self._opt_policy.update({curr_s: Direction.RIGHT})
+                                    self.opt_policy.update({curr_s: Direction.RIGHT})
                                 case -1:
-                                    self._opt_policy.update({curr_s: Direction.LEFT})
+                                    self.opt_policy.update({curr_s: Direction.LEFT})
                                 case -8:
-                                    self._opt_policy.update({curr_s: Direction.UP})            
+                                    self.opt_policy.update({curr_s: Direction.UP})            
                 
     # transition probability
     def P():

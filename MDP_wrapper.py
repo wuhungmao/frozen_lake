@@ -1,11 +1,12 @@
 from abc import ABC, abstractmethod
 class MDP_wrapper:
-    def __init__(self, env, action_spac, state_spac, val_func, disc_fact):
+    def __init__(self, env, action_spac, state_spac, val_func, disc_fact, opt_policy):
         self._env = env
         self._action_spac = action_spac
         self._state_spac = state_spac
         self._val_func = val_func
         self._disc_fact = disc_fact
+        self._opt_policy = opt_policy
         
     def return_reward():
         return None
@@ -36,3 +37,7 @@ class MDP_wrapper:
     @property
     def disc_fact(self):
         return self._disc_fact
+    
+    @property
+    def opt_policy(self):
+        return self._opt_policy
