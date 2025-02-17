@@ -3,7 +3,7 @@ import gymnasium as gym
 from gymnasium.envs.toy_text.frozen_lake import generate_random_map
 from frozen_lake import Frozen_lake_wrapper
 if __name__ == "__main__":
-    env = gym.make('FrozenLake-v1', render_mode="human", max_episode_steps=10, disable_env_checker=False, map_name="8x8", is_slippery=True)
+    env = gym.make('FrozenLake-v1', render_mode="human", max_episode_steps=100, disable_env_checker=False, map_name="8x8", is_slippery=False)
     fro_zen_mdp = Frozen_lake_wrapper(env)
         
     threshold = .000001
@@ -16,9 +16,15 @@ if __name__ == "__main__":
     fro_zen_mdp.extra_opt_policy()
     print(fro_zen_mdp._opt_policy)
     
-    # print(fro_zen_mdp.env.reset())
-    # print(fro_zen_mdp.env.step(2))
-    # print(fro_zen_mdp.env.render())
-    # print(fro_zen_mdp.env.step(1))
-    # print(fro_zen_mdp.env.render())
+    print(fro_zen_mdp.env.reset())
+    step = fro_zen_mdp.env.step(fro_zen_mdp._opt_policy[0].value)
+    while step[2] != True and step[3] != True:
+        step = fro_zen_mdp.env.step(fro_zen_mdp._opt_policy[step[0]].value)
+        fro_zen_mdp.env.render()
+
+    if step[2] == True:
+        print("terminated")
+    else:
+        print("truncated")
+        
     

@@ -78,15 +78,15 @@ class Frozen_lake_wrapper(MDP_wrapper):
             assert(len(poss_next_s) == 3)
         else:
             # deterministic environment
-            match a:
+            match action:
                 case Direction.LEFT:
-                    poss_next_s.append(in_state_space(go_left(curr_s)))
+                    poss_next_s.append(convert_back(in_state_space(go_left(convert_ind(curr_s)))))
                 case Direction.DOWN:
-                    poss_next_s.append(in_state_space(go_down(curr_s)))
+                    poss_next_s.append(convert_back(in_state_space(go_down(convert_ind(curr_s)))))
                 case Direction.RIGHT:
-                    poss_next_s.append(in_state_space(go_right(curr_s)))
+                    poss_next_s.append(convert_back(in_state_space(go_right(convert_ind(curr_s)))))
                 case Direction.UP:
-                    poss_next_s.append(in_state_space(go_up(curr_s)))
+                    poss_next_s.append(convert_back(in_state_space(go_up(convert_ind(curr_s)))))
             assert(len(poss_next_s) == 1)
         return poss_next_s
         
@@ -98,8 +98,8 @@ class Frozen_lake_wrapper(MDP_wrapper):
     # γ * V(s'): The discounted value of the next state s'.
     def calc_backup_val(self, curr_s:int) -> int:
         max_a = float("-inf")
-        action = 0
-        # all possible action
+        # penalty for being in a bad position, to make deterministic env work
+        bad_pos = 0
         for a in self.action_spac:
             # find all possible successor states
             succs_s = self.find_successors(curr_s=curr_s, a=a)
@@ -109,10 +109,15 @@ class Frozen_lake_wrapper(MDP_wrapper):
                 if next_s != None and self.env.spec.kwargs['is_slippery']:
                     cum_next_state_reward += 0.3333333333333333 * (self.return_reward(next_s) + self.disc_fact * self.val_func[next_s])
                 elif next_s != None:
-                    cum_next_state_reward += 1 * (self.return_reward(next_s) + self.disc_fact * self.val_func[next_s])   
+                    # cum_next_state_reward += 1 * (self.return_reward(next_s) + self.disc_fact * self.val_func[next_s])   
+                    # reward reshaping so agent to avoid hole
+                    next_s_reward = self.return_reward(next_s)
+                    cum_next_state_reward += 1 * (next_s_reward + self.disc_fact * self.val_func[next_s])   
+                    if next_s_reward == -1:
+                        bad_pos += 1
             if max_a < cum_next_state_reward:
                 max_a = cum_next_state_reward
-                action = a            
+        max_a = max_a + (-0.1 * bad_pos)
         return max_a
         
     def sweep(self):
