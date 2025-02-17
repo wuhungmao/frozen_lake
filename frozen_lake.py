@@ -14,8 +14,8 @@ class Frozen_lake_wrapper(MDP_wrapper):
     def __init__(self, env):
         # list[gym.Env, list[int], list[int], list[int]]
         super().__init__(env, list(range(env.action_space.n)), list(range(env.observation_space.n)), np.zeros(env.observation_space.n).tolist(), 0.5, dict())
-        self._NUM_COL = 8
-        self._NUM_ROW = 8
+        self._NUM_COL = 8 if env.spec.kwargs['map_name'] == '8x8' else 4 
+        self._NUM_ROW = 8 if env.spec.kwargs['map_name'] == '8x8' else 4 
         
         self._PRELOAD_MAP = types.MappingProxyType({
             "8x8" : 
@@ -27,12 +27,12 @@ class Frozen_lake_wrapper(MDP_wrapper):
                 [0, -1, -1, 0, 0, 0, -1, 0], 
                 [0, -1, 0, 0, -1, 0, -1, 0], 
                 [0, 0, 0, -1, 0, 0, 0, 1]], 
-            "4x4" : [
+            "4x4" : 
                 [[0, 0, 0, 0], 
                 [0, -1, 0, -1], 
                 [0, 0, 0, -1], 
                 [-1, 0, 0, 1]]
-            ]})
+            })
         
     # reward function
     def return_reward(self, next_s: int) -> int:
@@ -97,7 +97,7 @@ class Frozen_lake_wrapper(MDP_wrapper):
     # γ * V(s'): The discounted value of the next state s'.
     def calc_backup_val(self, curr_s:int) -> int:
         max_a = float("-inf")
-        # penalty for being in a bad position, to make deterministic env work
+        # penalty for being in a bad position, which mean near or at a negative reward state
         bad_pos = 0
         for a in self.action_spac:
             # find all possible successor states
@@ -116,12 +116,12 @@ class Frozen_lake_wrapper(MDP_wrapper):
                         bad_pos += 1
             if max_a < cum_next_state_reward:
                 max_a = cum_next_state_reward
-        max_a = max_a + (-0.1 * bad_pos)
+        max_a = max_a + (-0.1 * bad_pos) + (1 * self.return_reward(curr_s))
         return max_a
         
     def sweep(self):
         delta = float("-inf")
-        new_val_func = list(np.zeros(64))
+        new_val_func = list(np.zeros(self._NUM_COL * self._NUM_ROW))
         for curr_s in self.state_spac:
             new_val_func[curr_s] = self.calc_backup_val(curr_s)   
             if abs(new_val_func[curr_s] - self.val_func[curr_s]) > delta:
@@ -145,20 +145,22 @@ class Frozen_lake_wrapper(MDP_wrapper):
         # assuming value function converge already
         for curr_s in self.state_spac:
             max_v = float("-inf")
+            # print("curr s", curr_s)
             for a in self.action_spac:
                 succs = self.find_successors(curr_s, a)
+                # print("succs", succs)
                 for poss_succs in succs:
                     if poss_succs != None:
                         if max_v < self.val_func[poss_succs]:
                             max_v = self.val_func[poss_succs]
                             match poss_succs - curr_s:
-                                case 8:
+                                case 8 | 4:
                                     self.opt_policy.update({curr_s: Direction.DOWN})
                                 case 1:
                                     self.opt_policy.update({curr_s: Direction.RIGHT})
                                 case -1:
                                     self.opt_policy.update({curr_s: Direction.LEFT})
-                                case -8:
+                                case -8 | -4:
                                     self.opt_policy.update({curr_s: Direction.UP})            
                 
     # transition probability
