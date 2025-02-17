@@ -16,6 +16,7 @@ class Frozen_lake_wrapper(MDP_wrapper):
         super().__init__(env, list(range(env.action_space.n)), list(range(env.observation_space.n)), np.zeros(env.observation_space.n).tolist(), disc_fact=.5)
         self._NUM_COL = 8
         self._NUM_ROW = 8
+        self._opt_policy = dict()
         
         self._PRELOAD_MAP = types.MappingProxyType({
             "8x8" : 
@@ -47,32 +48,36 @@ class Frozen_lake_wrapper(MDP_wrapper):
 
     def find_successors(self, curr_s:int, a:int) -> list:
         poss_next_s = list()
-        in_state_space = lambda poss_s: poss_s if poss_s in self.state_spac else None
-        go_left = lambda curr_s: curr_s - 1
-        go_down = lambda curr_s: curr_s + self._NUM_COL
-        go_right = lambda curr_s: curr_s + 1
-        go_up = lambda curr_s: curr_s - self._NUM_COL
+        convert_back = lambda poss_s: poss_s[0] * self._NUM_COL + poss_s[1] if poss_s is not None else None 
+        convert_ind = lambda curr_s: [curr_s // self._NUM_COL, curr_s % self._NUM_COL]
+        in_state_space = lambda poss_s: poss_s if 0 <= poss_s[0] < self._NUM_ROW and 0 <= poss_s[1] < self._NUM_COL else None
+        go_left = lambda pair: [pair[0], pair[1] - 1]
+        go_down = lambda pair: [pair[0] + 1, pair[1]]
+        go_right = lambda pair: [pair[0], pair[1] + 1]
+        go_up = lambda pair: [pair[0] - 1, pair[1]]
         action = Direction(a)
         if(self.env.spec.kwargs['is_slippery']):
+            # stochastic environment
             match action:
                 case Direction.LEFT:
-                    poss_next_s.append(in_state_space(go_up(curr_s)))
-                    poss_next_s.append(in_state_space(go_left(curr_s)))
-                    poss_next_s.append(in_state_space(go_down(curr_s)))
+                    poss_next_s.append(convert_back(in_state_space(go_up(convert_ind(curr_s)))))
+                    poss_next_s.append(convert_back(in_state_space(go_left(convert_ind(curr_s)))))
+                    poss_next_s.append(convert_back(in_state_space(go_down(convert_ind(curr_s)))))
                 case Direction.DOWN:
-                    poss_next_s.append(in_state_space(go_left(curr_s)))
-                    poss_next_s.append(in_state_space(go_down(curr_s)))
-                    poss_next_s.append(in_state_space(go_right(curr_s)))
+                    poss_next_s.append(convert_back(in_state_space(go_left(convert_ind(curr_s)))))
+                    poss_next_s.append(convert_back(in_state_space(go_down(convert_ind(curr_s)))))
+                    poss_next_s.append(convert_back(in_state_space(go_right(convert_ind(curr_s)))))
                 case Direction.RIGHT:
-                    poss_next_s.append(in_state_space(go_down(curr_s)))
-                    poss_next_s.append(in_state_space(go_right(curr_s)))
-                    poss_next_s.append(in_state_space(go_up(curr_s)))
+                    poss_next_s.append(convert_back(in_state_space(go_down(convert_ind(curr_s)))))
+                    poss_next_s.append(convert_back(in_state_space(go_right(convert_ind(curr_s)))))
+                    poss_next_s.append(convert_back(in_state_space(go_up(convert_ind(curr_s)))))
                 case Direction.UP:
-                    poss_next_s.append(in_state_space(go_right(curr_s)))
-                    poss_next_s.append(in_state_space(go_up(curr_s)))
-                    poss_next_s.append(in_state_space(go_left(curr_s)))
+                    poss_next_s.append(convert_back(in_state_space(go_right(convert_ind(curr_s)))))
+                    poss_next_s.append(convert_back(in_state_space(go_up(convert_ind(curr_s)))))
+                    poss_next_s.append(convert_back(in_state_space(go_left(convert_ind(curr_s)))))
             assert(len(poss_next_s) == 3)
         else:
+            # deterministic environment
             match a:
                 case Direction.LEFT:
                     poss_next_s.append(in_state_space(go_left(curr_s)))
@@ -117,11 +122,40 @@ class Frozen_lake_wrapper(MDP_wrapper):
             new_val_func[curr_s] = self.calc_backup_val(curr_s)   
             if abs(new_val_func[curr_s] - self.val_func[curr_s]) > delta:
                 delta = abs(new_val_func[curr_s] - self.val_func[curr_s])
-        print(new_val_func)
         self.val_func = new_val_func
         return delta
                 
-                
+    def dump(self):
+        print("----------------------------------")
+        print("cols: ", self._NUM_COL)
+        print("rows: ", self._NUM_ROW)
+        print("env spec: ", self.env.spec)
+        print("action space: ", self.action_spac)
+        print("state space: \n", np.array(self.state_spac).reshape(self._NUM_COL, self._NUM_ROW))
+        print("discount factor: ", self.disc_fact)
+        with np.printoptions(precision=6, suppress=True, linewidth=100):
+            print("value function: \n", np.array(self.val_func).reshape(self._NUM_COL, self._NUM_ROW))
+        print("----------------------------------")
+    
+    def extra_opt_policy(self):
+        # assuming value function converge already
+        for curr_s in self.state_spac:
+            max_v = float("-inf")
+            for a in self.action_spac:
+                succs = self.find_successors(curr_s, a)
+                for poss_succs in succs:
+                    if poss_succs != None:
+                        if max_v < self.val_func[poss_succs]:
+                            max_v = self.val_func[poss_succs]
+                            match poss_succs - curr_s:
+                                case 8:
+                                    self._opt_policy.update({curr_s: Direction.DOWN})
+                                case 1:
+                                    self._opt_policy.update({curr_s: Direction.RIGHT})
+                                case -1:
+                                    self._opt_policy.update({curr_s: Direction.LEFT})
+                                case -8:
+                                    self._opt_policy.update({curr_s: Direction.UP})            
                 
     # transition probability
     def P():
